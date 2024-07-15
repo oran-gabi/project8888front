@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Customers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            padding: 20px;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        table th {
+            background-color: #333;
+            color: white;
+        }
+        .form-container {
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+        #pagination-controls {
+            margin-top: 10px;
+        }
+        #pagination-controls button {
+            margin-right: 5px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #message-container {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .error-message {
+            background-color: #ffdddd;
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+        .success-message {
+            background-color: #ddffdd;
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div id="pagination-controls"></div>
+    <div class="container">
+        <h1>Manage Customers</h1>
+        <div class="table-container">
+            <table id="customers-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Address</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Customer data will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="form-container">
+            <h2>Add/Edit Customer</h2>
+            <div id="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+            </div>
+            <form id="customer-form">
+                <div class="form-group">
+                    <label for="customer-id">ID (for edit only):</label>
+                    <input type="text" id="customer-id" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="customer-name">Name:</label>
+                    <input type="text" id="customer-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-email">Email:</label>
+                    <input type="email" id="customer-email" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-phone">Phone:</label>
+                    <input type="text" id="customer-phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-address">Address:</label>
+                    <input type="text" id="customer-address" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Save Customer</button>
+                </div>
+                <div id="message-container" style="display: none;"></div>
+                <button type="button" onclick="logout()">Logout</button>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetchCustomers();
+            document.getElementById('customer-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                saveCustomer();
+            });
+        });
+
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+
+        function showLoading() {
+            document.getElementById('loading-spinner').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+
+        function fetchCustomers(page = 1, perPage = 10) {
+            showLoading();
+            const token = getToken();
+            axios.get(`http://localhost:5000/api/customers?page=${page}&per_page=${perPage}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Customers fetched successfully:', response.data);
+                const customersTableBody = document.getElementById('customers-table').getElementsByTagName('tbody')[0];
+                customersTableBody.innerHTML = '';
+                response.data.customers.forEach(customer => {
+                    const row = customersTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${customer.id}</td>
+                        <td>${customer.name}</td>
+                        <td>${customer.email}</td>
+                        <td>${customer.phone}</td>
+                        <td>${customer.address}</td>
+                        <td>
+                            <button onclick="editCustomer(${customer.id})">Edit</button>
+                            <button onclick="deleteCustomer(${customer.id})">Delete</button>
+                        </td>
+                    `;
+                });
+                updatePaginationControls(response.data.current_page, response.data.total_pages, response.data.total_items);
+            })
+            .catch(error => {
+                console.error('Error fetching customers:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch customers. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function updatePaginationControls(currentPage, totalPages, totalItems) {
+            const paginationContainer = document.getElementById('pagination-controls');
+            paginationContainer.innerHTML = '';
+
+            if (currentPage > 1) {
+                const prevButton = document.createElement('button');
+                prevButton.textContent = 'Previous';
+                prevButton.onclick = () => fetchCustomers(currentPage - 1);
+                paginationContainer.appendChild(prevButton);
+            }
+
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.onclick = () => fetchCustomers(i);
+                if (i === currentPage) {
+                    pageButton.disabled = true;
+                }
+                paginationContainer.appendChild(pageButton);
+            }
+
+            if (currentPage < totalPages) {
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Next';
+                nextButton.onclick = () => fetchCustomers(currentPage + 1);
+                paginationContainer.appendChild(nextButton);
+            }
+
+            const totalItemsSpan = document.createElement('span');
+            totalItemsSpan.textContent = `Total items: ${totalItems}`;
+            paginationContainer.appendChild(totalItemsSpan);
+        }
+
+        function saveCustomer() {
+            showLoading();
+            const token = getToken();
+            const customerId = document.getElementById('customer-id').value;
+            const customerName = document.getElementById('customer-name').value;
+            const customerEmail = document.getElementById('customer-email').value;
+            const customerPhone = document.getElementById('customer-phone').value;
+            const customerAddress = document.getElementById('customer-address').value;
+
+            const data = {
+                name: customerName,
+                email: customerEmail,
+                phone: customerPhone,
+                address: customerAddress
+            };
+
+            const url = customerId ? `http://localhost:5000/api/customers/${customerId}` : 'http://localhost:5000/api/customers';
+            const method = customerId ? 'put' : 'post';
+
+            axios({
+                method: method,
+                url: url,
+                data: data,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Customer saved successfully:', response.data);
+                showSuccessMessage('Customer saved successfully!');
+                fetchCustomers();
+                resetForm();
+            })
+            .catch(error => {
+                console.error('Error saving customer:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to save customer. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function editCustomer(id) {
+            showLoading();
+            const token = getToken();
+            axios.get(`http://localhost:5000/api/customers/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                const customer = response.data;
+                document.getElementById('customer-id').value = customer.id;
+                document.getElementById('customer-name').value = customer.name;
+                document.getElementById('customer-email').value = customer.email;
+                document.getElementById('customer-phone').value = customer.phone;
+                document.getElementById('customer-address').value = customer.address;
+            })
+            .catch(error => {
+                console.error('Error fetching customer:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch customer details. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function deleteCustomer(id) {
+            showLoading();
+            const token = getToken();
+            axios.delete(`http://localhost:5000/api/customers/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Customer deleted successfully:', response.data);
+                showSuccessMessage('Customer deleted successfully!');
+                fetchCustomers();
+            })
+            .catch(error => {
+                console.error('Error deleting customer:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to delete customer. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('customer-id').value = '';
+            document.getElementById('customer-name').value = '';
+            document.getElementById('customer-email').value = '';
+            document.getElementById('customer-phone').value = '';
+            document.getElementById('customer-address').value = '';
+        }
+
+        function showErrorMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.className = 'error-message';
+            messageContainer.textContent = message;
+            messageContainer.style.display = 'block';
+        }
+
+        function showSuccessMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.className = 'success-message';
+            messageContainer.textContent = message;
+            messageContainer.style.display = 'block';
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

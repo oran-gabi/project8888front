@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Books</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            padding: 20px;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        table th {
+            background-color: #333;
+            color: white;
+        }
+        .form-container {
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+        #pagination-controls {
+            margin-top: 10px;
+        }
+        #pagination-controls button {
+            margin-right: 5px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #message-container {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .error-message {
+            background-color: #ffdddd;
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+        .success-message {
+            background-color: #ddffdd;
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div id="pagination-controls"></div>
+    <div class="container">
+        <h1>Manage Books</h1>
+        <div class="table-container">
+            <table id="books-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Year</th>
+                        <th>Available Copies</th>
+                        <th>Type</th>
+                        <th>Book Image</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Book data will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+        <div class="form-container">
+            <h2>Add/Edit Book</h2>
+            <div id="loading-spinner" style="display: none;">
+                <div class="spinner"></div>
+            </div>
+            <form id="book-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="book-id">ID (for edit only):</label>
+                    <input type="text" id="book-id" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="book-title">Title:</label>
+                    <input type="text" id="book-title" required>
+                </div>
+                <div class="form-group">
+                    <label for="book-author">Author:</label>
+                    <input type="text" id="book-author" required>
+                </div>
+                <div class="form-group">
+                    <label for="book-year">Year:</label>
+                    <input type="text" id="book-year" required>
+                </div>
+                <div class="form-group">
+                    <label for="book-copies">Available Copies:</label>
+                    <input type="text" id="book-copies" required>
+                </div>
+                <div class="form-group">
+                    <label for="book-image">Upload Image:</label>
+                    <input type="file" id="book-image" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <button type="submit">Save Book</button>
+                </div>
+                <div id="message-container" style="display: none;"></div>
+                <button type="button" onclick="confirmLogout()">Logout</button>
+            </form>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const SERVER = "http://127.0.0.1:5000";
+
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchBooks();
+        });
+
+        function fetchBooks(page = 1, perPage = 10) {
+            showLoading();
+            const token = getToken();
+            axios.get(`${SERVER}/api/books?page=${page}&per_page=${perPage}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Books fetched successfully:', response.data);
+                const booksTableBody = document.getElementById('books-table').getElementsByTagName('tbody')[0];
+                booksTableBody.innerHTML = '';
+                if (response.data.books) {
+                    response.data.books.forEach(book => {
+                        const row = booksTableBody.insertRow();
+                        row.innerHTML = `
+                            <td>${book.id}</td>
+                            <td>${book.title}</td>
+                            <td>${book.author}</td>
+                            <td>${book.year}</td>
+                            <td>${book.available_copies}</td>
+                            <td>${book.type || 'N/A'}</td>
+                            <td><img src="${book.image_url || 'placeholder.jpg'}" alt="${book.title}" width="50"></td>
+                            <td>
+                                <button onclick="editBook(${book.id})">Edit</button>
+                                <button onclick="deleteBook(${book.id})">Delete</button>
+                            </td>
+                        `;
+                    });
+                    updatePaginationControls(response.data.current_page, response.data.total_pages, response.data.total_items);
+                } else {
+                    showErrorMessage('No books found.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching books:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch books. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function updatePaginationControls(currentPage, totalPages, totalItems) {
+            const paginationContainer = document.getElementById('pagination-controls');
+            paginationContainer.innerHTML = '';
+
+            if (currentPage > 1) {
+                const prevButton = document.createElement('button');
+                prevButton.textContent = 'Previous';
+                prevButton.onclick = () => fetchBooks(currentPage - 1);
+                paginationContainer.appendChild(prevButton);
+            }
+
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.onclick = () => fetchBooks(i);
+                if (i === currentPage) {
+                    pageButton.disabled = true;
+                }
+                paginationContainer.appendChild(pageButton);
+            }
+
+            if (currentPage < totalPages) {
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Next';
+                nextButton.onclick = () => fetchBooks(currentPage + 1);
+                paginationContainer.appendChild(nextButton);
+            }
+
+            const totalItemsSpan = document.createElement('span');
+            totalItemsSpan.textContent = `Total items: ${totalItems}`;
+            paginationContainer.appendChild(totalItemsSpan);
+        }
+
+        function saveBook() {
+            showLoading();
+            const token = getToken();
+            const bookId = document.getElementById('book-id').value;
+            const bookTitle = document.getElementById('book-title').value;
+            const bookAuthor = document.getElementById('book-author').value;
+            const bookYear = document.getElementById('book-year').value;
+            const bookCopies = document.getElementById('book-copies').value;
+            const bookImage = document.getElementById('book-image').files[0];
+
+            const formData = new FormData();
+            formData.append('title', bookTitle);
+            formData.append('author', bookAuthor);
+            formData.append('year', bookYear);
+            formData.append('available_copies', bookCopies);
+            if (bookImage) {
+                formData.append('image', bookImage);
+            }
+
+            const config = {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            };
+
+            let axiosRequest;
+            if (bookId) {
+                axiosRequest = axios.put(`${SERVER}/api/books/${bookId}`, formData, config);
+            } else {
+                axiosRequest = axios.post(`${SERVER}/api/books`, formData, config);
+            }
+
+            axiosRequest.then(response => {
+                console.log('Book saved successfully:', response.data);
+                showSuccessMessage('Book saved successfully.');
+                document.getElementById('book-form').reset();
+                fetchBooks();
+            })
+            .catch(error => {
+                console.error('Error saving book:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to save book. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function editBook(bookId) {
+            showLoading();
+            const token = getToken();
+            axios.get(`${SERVER}/api/books/${bookId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Book data for edit:', response.data);
+                const book = response.data;
+                document.getElementById('book-id').value = book.id;
+                document.getElementById('book-title').value = book.title;
+                document.getElementById('book-author').value = book.author;
+                document.getElementById('book-year').value = book.year;
+                document.getElementById('book-copies').value = book.available_copies;
+            })
+            .catch(error => {
+                console.error('Error fetching book for edit:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch book data. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function deleteBook(bookId) {
+            showLoading();
+            const token = getToken();
+            axios.delete(`${SERVER}/api/books/${bookId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Book deleted successfully:', response.data);
+                showSuccessMessage('Book deleted successfully.');
+                fetchBooks();
+            })
+            .catch(error => {
+                console.error('Error deleting book:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to delete book. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function confirmLogout() {
+            if (confirm('Are you sure you want to log out?')) {
+                localStorage.removeItem('access_token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loading-spinner').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+
+        function showErrorMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.textContent = message;
+            messageContainer.className = 'error-message';
+            messageContainer.style.display = 'block';
+        }
+
+        function showSuccessMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.textContent = message;
+            messageContainer.className = 'success-message';
+            messageContainer.style.display = 'block';
+        }
+
+        document.getElementById('book-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            saveBook();
+        });
+
+    </script>
+</body>
+</html>

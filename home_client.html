@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 0;
+            margin: 0;
+        }
+
+        .navbar {
+            background-color: #333;
+            overflow: hidden;
+        }
+
+        .navbar a {
+            float: left;
+            display: block;
+            color: #f2f2f2;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+            font-size: 17px;
+        }
+
+        .navbar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .navbar a.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .navbar a.right {
+            float: right;
+        }
+
+        .book-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            /* Needed for absolute positioning of pagination controls */
+            min-height: 100vh;
+            /* Ensure the container fills the screen height */
+        }
+
+        .book-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin: 10px;
+            padding: 10px;
+            width: 200px;
+            text-align: center;
+        }
+
+        .book-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        .book-card h3 {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        #pagination-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        @media screen and (max-width: 768px) {
+            .book-card {
+                width: 150px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="navbar">
+        <a href="home_client.html" class="active">Home</a>
+        <a href="book_reviews.html">Book Reviews</a>
+        <a href="profile_client.html">Profile</a>
+        <a href="index.html" class="right">Logout</a>
+        <a href="home_admin.html" class="right">Admin Only</a>
+    </div>
+
+    <div class="book-container" id="book-container">
+        <!-- Book cards will be dynamically added here -->
+    </div>
+
+    <div id="pagination-controls">
+        <button id="prev-page-btn" onclick="fetchBooks(-1)" disabled>Previous</button>
+        <span id="page-info">Page 1</span>
+        <button id="next-page-btn" onclick="fetchBooks(1)">Next</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const SERVER = "http://127.0.0.1:5000";
+        let currentPage = 1;
+        let isLoading = false;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            fetchBooks();
+            window.addEventListener('scroll', handleScroll);
+        });
+
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function fetchBooks(pageOffset = 0, pageSize = 10) {
+            const token = getToken();
+
+            if (!token) {
+                console.error('No token found in localStorage');
+                return;
+            }
+
+            isLoading = true; // Set loading state
+            currentPage += pageOffset;
+
+            axios.get(`${SERVER}/api/books`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    params: {
+                        offset: (currentPage - 1) * pageSize,
+                        limit: pageSize
+                    }
+                })
+                .then(response => {
+                    console.log('Response data:', response.data);
+
+                    const booksArray = response.data.books;
+
+                    if (Array.isArray(booksArray)) {
+                        displayBooks(booksArray);
+                        updatePaginationInfo(); // Update pagination controls
+                    } else {
+                        console.error('Invalid response data format - books array not found:', response.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching books:', error);
+                })
+                .finally(() => {
+                    isLoading = false; // Reset loading state
+                });
+        }
+
+        function updatePaginationInfo() {
+            document.getElementById('page-info').textContent = `Page ${currentPage}`;
+            document.getElementById('prev-page-btn').disabled = (currentPage === 1);
+            // Assuming there's no more pages if books array length is less than 10 (adjust based on your API response)
+            document.getElementById('next-page-btn').disabled = (response.data.books.length < 10);
+        }
+
+        function handleScroll() {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+                if (!isLoading) {
+                    fetchBooks(1);
+                }
+            }
+        }
+
+        function displayBooks(books) {
+            const bookContainer = document.getElementById('book-container');
+            bookContainer.innerHTML = '';
+
+            books.forEach(book => {
+                const card = document.createElement('div');
+                card.classList.add('book-card');
+
+                const image = document.createElement('img');
+                if (book.image_filename && book.image_filename.trim() !== '') {
+                    image.src = `${SERVER}/api/uploads/${book.image_filename}`;
+                } else {
+                    image.src = 'https://duncanlock.net/images/posts/better-figures-images-plugin-for-pelican/dummy-200x200.png';
+                }
+                image.alt = book.name;
+                card.appendChild(image);
+
+                const title = document.createElement('h3');
+                title.textContent = book.name;
+                card.appendChild(title);
+
+                const author = document.createElement('p');
+                author.textContent = `By ${book.author}`;
+                card.appendChild(author);
+
+                const year = document.createElement('p');
+                year.textContent = `Published: ${book.year}`;
+                card.appendChild(year);
+
+                bookContainer.appendChild(card);
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,144 @@
+<body>
+    <h1>Manage Books</h1>
+
+    <!-- Form to add or update a book -->
+    <form id="bookForm" enctype="multipart/form-data">
+        <input type="hidden" id="bookId" name="bookId">
+
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="author">Author:</label>
+        <input type="text" id="author" name="author" required><br><br>
+
+        <label for="year">Year:</label>
+        <input type="number" id="year" name="year" required><br><br>
+
+        <label for="type">Type:</label>
+        <input type="number" id="type" name="type" required><br><br>
+
+        <label for="image">Image:</label>
+        <input type="file" id="image" name="image"><br><br>
+
+        <button type="submit" id="saveBtn">Save</button>
+        <button type="button" id="cancelBtn">Cancel</button>
+    </form>
+
+    <hr>
+
+    <!-- Table to display existing books -->
+    <table id="bookTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Author</th>
+                <th>Year</th>
+                <th>Type</th>
+                <th>Image</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Book rows will be inserted here dynamically -->
+        </tbody>
+    </table>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const apiUrl = 'http://127.0.0.1:5000/api/books';  // Replace with your backend API URL
+
+        // Function to fetch and display books
+        async function fetchBooks() {
+            try {
+                const response = await axios.get(apiUrl);
+                const books = response.data;
+                const tableBody = document.querySelector('#bookTable tbody');
+                tableBody.innerHTML = '';
+                books.forEach(book => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${book.id}</td>
+                        <td>${book.name}</td>
+                        <td>${book.author}</td>
+                        <td>${book.year}</td>
+                        <td>${book.type}</td>
+                        <td><img src="/uploads/${book.image_filename}" alt="${book.name}" style="max-width: 100px;"></td>
+                        <td>
+                            <button onclick="editBook(${book.id})">Edit</button>
+                            <button onclick="deleteBook(${book.id})">Delete</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching books:', error);
+            }
+        }
+
+        // Function to handle form submission for adding/updating a book
+        async function submitBook(event) {
+            event.preventDefault();
+            const form = document.getElementById('bookForm');
+            const formData = new FormData(form);
+
+            try {
+                let response;
+                if (formData.get('bookId')) {
+                    // Update existing book
+                    response = await axios.put(`${apiUrl}/${formData.get('bookId')}`, formData);
+                } else {
+                    // Add new book
+                    response = await axios.post(apiUrl, formData);
+                }
+                alert(response.data.message);
+                form.reset();
+                fetchBooks();  // Refresh book list after operation
+            } catch (error) {
+                console.error('Error saving book:', error);
+            }
+        }
+
+        // Function to populate form for editing a book
+        async function editBook(bookId) {
+            try {
+                const response = await axios.get(`${apiUrl}/${bookId}`);
+                const book = response.data;
+                const form = document.getElementById('bookForm');
+                form.elements.bookId.value = book.id;
+                form.elements.name.value = book.name;
+                form.elements.author.value = book.author;
+                form.elements.year.value = book.year;
+                form.elements.type.value = book.type;
+                // You may handle image display separately if needed
+            } catch (error) {
+                console.error('Error fetching book details:', error);
+            }
+        }
+
+        // Function to delete a book
+        async function deleteBook(bookId) {
+            if (confirm('Are you sure you want to delete this book?')) {
+                try {
+                    const response = await axios.delete(`${apiUrl}/${bookId}`);
+                    alert(response.data.message);
+                    fetchBooks();  // Refresh book list after deletion
+                } catch (error) {
+                    console.error('Error deleting book:', error);
+                }
+            }
+        }
+
+        // Cancel button handler (reset form)
+        document.getElementById('cancelBtn').addEventListener('click', function () {
+            document.getElementById('bookForm').reset();
+        });
+
+        // Initial fetch of books on page load
+        fetchBooks();
+
+        // Submit form on form submission
+        document.getElementById('bookForm').addEventListener('submit', submitBook);
+    </script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Loans</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            padding: 20px;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        table th {
+            background-color: #333;
+            color: white;
+        }
+        .form-container {
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .form-group button:hover {
+            background-color: #45a049;
+        }
+        .message {
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .error-message {
+            background-color: #f44336;
+            color: white;
+        }
+        .success-message {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #message-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manage Loans</h1>
+        <div class="table-container">
+            <table id="loans-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Customer Name</th>
+                        <th>Book Title</th>
+                        <th>Loan Date</th>
+                        <th>Return Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Loan data will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div id="message-container" class="message"></div>
+
+        <div class="form-container">
+            <h2>Add/Edit Loan</h2>
+            <form id="loan-form">
+                <div class="form-group">
+                    <label for="loan-id">ID (for edit only):</label>
+                    <input type="text" id="loan-id" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="loan-customer-id">Customer ID:</label>
+                    <input type="text" id="loan-customer-id" required>
+                </div>
+                <div class="form-group">
+                    <label for="loan-book-id">Book ID:</label>
+                    <input type="text" id="loan-book-id" required>
+                </div>
+                <div class="form-group">
+                    <label for="loan-date">Loan Date:</label>
+                    <input type="date" id="loan-date" required>
+                </div>
+                <div class="form-group">
+                    <label for="return-date">Return Date:</label>
+                    <input type="date" id="return-date" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Save Loan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetchLoans();
+
+            document.getElementById('loan-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                saveLoan();
+            });
+        });
+
+        function getToken() {
+            return localStorage.getItem('token');
+        }
+
+        function showLoading() {
+            // Implement loading indicator if needed
+        }
+
+        function hideLoading() {
+            // Hide loading indicator if needed
+        }
+
+        function fetchLoans() {
+            showLoading();
+            const token = getToken();
+            axios.get('http://localhost:5000/api/loans', {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                const loansTableBody = document.getElementById('loans-table').getElementsByTagName('tbody')[0];
+                loansTableBody.innerHTML = '';
+
+                response.data.forEach(loan => {
+                    const row = loansTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${loan.id}</td>
+                        <td>${loan.customer_name}</td>
+                        <td>${loan.book_title}</td>
+                        <td>${loan.loan_date}</td>
+                        <td>${loan.return_date}</td>
+                        <td>
+                            <button onclick="editLoan(${loan.id})">Edit</button>
+                            <button onclick="deleteLoan(${loan.id})">Delete</button>
+                        </td>
+                    `;
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching loans:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch loans. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function saveLoan() {
+            showLoading();
+            const token = getToken();
+            const loanId = document.getElementById('loan-id').value;
+            const loanCustomerId = document.getElementById('loan-customer-id').value;
+            const loanBookId = document.getElementById('loan-book-id').value;
+            const loanDate = document.getElementById('loan-date').value;
+            const returnDate = document.getElementById('return-date').value;
+
+            const loanData = {
+                customer_id: loanCustomerId,
+                book_id: loanBookId,
+                loan_date: loanDate,
+                return_date: returnDate
+            };
+
+            console.log('Loan data being sent:', loanData); // Log loan data for debugging
+
+            let request;
+            if (loanId) {
+                request = axios.put(`http://localhost:5000/api/loans/${loanId}`, loanData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+            } else {
+                request = axios.post('http://localhost:5000/api/loans', loanData, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                });
+            }
+
+            request.then(response => {
+                console.log('Loan saved successfully:', response.data);
+                showSuccessMessage('Loan saved successfully!');
+                fetchLoans();
+                resetForm();
+            })
+            .catch(error => {
+                console.error('Error saving loan:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to save loan. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function editLoan(id) {
+            showLoading();
+            const token = getToken();
+            axios.get(`http://localhost:5000/api/loans/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                const loan = response.data;
+                document.getElementById('loan-id').value = loan.id;
+                document.getElementById('loan-customer-id').value = loan.customer_id;
+                document.getElementById('loan-book-id').value = loan.book_id;
+                document.getElementById('loan-date').value = loan.loan_date;
+                document.getElementById('return-date').value = loan.return_date;
+            })
+            .catch(error => {
+                console.error('Error fetching loan:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to fetch loan details. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function deleteLoan(id) {
+            showLoading();
+            const token = getToken();
+            axios.delete(`http://localhost:5000/api/loans/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            .then(response => {
+                console.log('Loan deleted successfully:', response.data);
+                showSuccessMessage('Loan deleted successfully!');
+                fetchLoans();
+            })
+            .catch(error => {
+                console.error('Error deleting loan:', error.response ? error.response.data : error.message);
+                showErrorMessage('Failed to delete loan. Please try again.');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+        }
+
+        function resetForm() {
+            document.getElementById('loan-id').value = '';
+            document.getElementById('loan-customer-id').value = '';
+            document.getElementById('loan-book-id').value = '';
+            document.getElementById('loan-date').value = '';
+            document.getElementById('return-date').value = '';
+        }
+
+        function showErrorMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.className = 'message error-message';
+            messageContainer.textContent = message;
+            messageContainer.style.display = 'block';
+            setTimeout(() => {
+                messageContainer.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccessMessage(message) {
+            const messageContainer = document.getElementById('message-container');
+            messageContainer.className = 'message success-message';
+            messageContainer.textContent = message;
+            messageContainer.style.display = 'block';
+            setTimeout(() => {
+                messageContainer.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
