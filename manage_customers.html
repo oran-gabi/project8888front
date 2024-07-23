@@ -172,7 +172,7 @@
         function fetchCustomers(page = 1, perPage = 10) {
             showLoading();
             const token = getToken();
-            axios.get(`http://localhost:5000/api/customers?page=${page}&per_page=${perPage}`, {
+            axios.get(`http://127.0.0.1:5000/customers?page=${page}&per_page=${perPage}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -255,7 +255,7 @@
                 address: customerAddress
             };
 
-            const url = customerId ? `http://localhost:5000/api/customers/${customerId}` : 'http://localhost:5000/api/customers';
+            const url = customerId ? `http://127.0.0.1:5000/customers/${customerId}` : 'http://127.0.0.1:5000/customers';
             const method = customerId ? 'put' : 'post';
 
             axios({
@@ -285,7 +285,7 @@
         function editCustomer(id) {
             showLoading();
             const token = getToken();
-            axios.get(`http://localhost:5000/api/customers/${id}`, {
+            axios.get(`http://127.0.0.1:5000/customers/${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -310,7 +310,7 @@
         function deleteCustomer(id) {
             showLoading();
             const token = getToken();
-            axios.delete(`http://localhost:5000/api/customers/${id}`, {
+            axios.delete(`http://127.0.0.1:5000/customers/${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

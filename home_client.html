@@ -48,9 +48,7 @@
             justify-content: center;
             padding: 20px;
             position: relative;
-            /* Needed for absolute positioning of pagination controls */
             min-height: 100vh;
-            /* Ensure the container fills the screen height */
         }
 
         .book-card {
@@ -74,11 +72,51 @@
             font-size: 16px;
         }
 
+        .book-card p {
+            margin: 5px 0;
+        }
+
+        .book-card button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .book-card button:hover {
+            background-color: #45a049;
+        }
+
         #pagination-controls {
             position: absolute;
             bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         @media screen and (max-width: 768px) {
@@ -93,11 +131,13 @@
 <body>
     <div class="navbar">
         <a href="home_client.html" class="active">Home</a>
-        <a href="book_reviews.html">Book Reviews</a>
+        <a href="post_loan.html">make loan</a>
         <a href="profile_client.html">Profile</a>
         <a href="index.html" class="right">Logout</a>
         <a href="home_admin.html" class="right">Admin Only</a>
     </div>
+
+   <center><h1>Welcome to Library</h1></center> 
 
     <div class="book-container" id="book-container">
         <!-- Book cards will be dynamically added here -->
@@ -109,19 +149,39 @@
         <button id="next-page-btn" onclick="fetchBooks(1)">Next</button>
     </div>
 
+    <div id="spinner" class="spinner" style="display: none;"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
     <script>
         const SERVER = "http://127.0.0.1:5000";
+        const DEFAULT_IMAGE = 'https://duncanlock.net/images/posts/better-figures-images-plugin-for-pelican/dummy-200x200.png';
         let currentPage = 1;
         let isLoading = false;
 
         document.addEventListener('DOMContentLoaded', function () {
+            const token = getToken();
+            if (!token) {
+                console.error('No token found in localStorage. Ensure you are logged in.');
+                return;
+            }
+
+            
             fetchBooks();
-            window.addEventListener('scroll', handleScroll);
         });
 
         function getToken() {
-            return localStorage.getItem('access_token');
+            const token = localStorage.getItem('access_token');
+            console.log('Retrieved token from localStorage:', token);
+            return token;
+        }
+
+        function showSpinner() {
+            document.getElementById('spinner').style.display = 'block';
+        }
+
+        function hideSpinner() {
+            document.getElementById('spinner').style.display = 'none';
         }
 
         function fetchBooks(pageOffset = 0, pageSize = 10) {
@@ -132,51 +192,44 @@
                 return;
             }
 
-            isLoading = true; // Set loading state
+            isLoading = true;
+            showSpinner();
             currentPage += pageOffset;
 
-            axios.get(`${SERVER}/api/books`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    },
-                    params: {
-                        offset: (currentPage - 1) * pageSize,
-                        limit: pageSize
-                    }
-                })
-                .then(response => {
-                    console.log('Response data:', response.data);
+            axios.get(`${SERVER}/books`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                params: {
+                    offset: (currentPage - 1) * pageSize,
+                    limit: pageSize
+                }
+            })
+            .then(response => {
+                console.log('Response data:', response.data);
 
-                    const booksArray = response.data.books;
+                const booksArray = response.data.books;
 
-                    if (Array.isArray(booksArray)) {
-                        displayBooks(booksArray);
-                        updatePaginationInfo(); // Update pagination controls
-                    } else {
-                        console.error('Invalid response data format - books array not found:', response.data);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching books:', error);
-                })
-                .finally(() => {
-                    isLoading = false; // Reset loading state
-                });
+                if (Array.isArray(booksArray)) {
+                    displayBooks(booksArray);
+                    updatePaginationInfo(response.data.books.length);
+                } else {
+                    console.error('Invalid response data format - books array not found:', response.data);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching books:', error);
+            })
+            .finally(() => {
+                isLoading = false;
+                hideSpinner();
+            });
         }
 
-        function updatePaginationInfo() {
+        function updatePaginationInfo(bookCount) {
             document.getElementById('page-info').textContent = `Page ${currentPage}`;
             document.getElementById('prev-page-btn').disabled = (currentPage === 1);
-            // Assuming there's no more pages if books array length is less than 10 (adjust based on your API response)
-            document.getElementById('next-page-btn').disabled = (response.data.books.length < 10);
-        }
-
-        function handleScroll() {
-            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
-                if (!isLoading) {
-                    fetchBooks(1);
-                }
-            }
+            document.getElementById('next-page-btn').disabled = (bookCount < 10);
         }
 
         function displayBooks(books) {
@@ -188,11 +241,7 @@
                 card.classList.add('book-card');
 
                 const image = document.createElement('img');
-                if (book.image_filename && book.image_filename.trim() !== '') {
-                    image.src = `${SERVER}/api/uploads/${book.image_filename}`;
-                } else {
-                    image.src = 'https://duncanlock.net/images/posts/better-figures-images-plugin-for-pelican/dummy-200x200.png';
-                }
+                image.src = book.image_filename ? `${SERVER}/uploads/${book.image_filename}` : DEFAULT_IMAGE;
                 image.alt = book.name;
                 card.appendChild(image);
 
@@ -208,9 +257,18 @@
                 year.textContent = `Published: ${book.year}`;
                 card.appendChild(year);
 
+                const selectButton = document.createElement('button');
+                selectButton.textContent = 'Select';
+                selectButton.onclick = () => selectBook(book.id);
+                card.appendChild(selectButton);
+
                 bookContainer.appendChild(card);
             });
         }
+
+        function selectBook(bookId) {
+    window.location.href = `post_loan.html?book_id=${bookId}`;
+}
     </script>
 </body>
 

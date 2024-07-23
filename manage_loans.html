@@ -128,11 +128,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             fetchLoans();
-
-            document.getElementById('loan-form').addEventListener('submit', function (e) {
-                e.preventDefault();
+            
+            document.getElementById('loan-form').addEventListener('submit', function(event) {
+                event.preventDefault();
                 saveLoan();
             });
         });
@@ -152,7 +152,7 @@
         function fetchLoans() {
             showLoading();
             const token = getToken();
-            axios.get('http://localhost:5000/api/loans', {
+            axios.get('http://localhost:5000/loans', {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -168,7 +168,7 @@
                         <td>${loan.customer_name}</td>
                         <td>${loan.book_title}</td>
                         <td>${loan.loan_date}</td>
-                        <td>${loan.return_date}</td>
+                        <td>${loan.return_date || 'Not returned yet'}</td>
                         <td>
                             <button onclick="editLoan(${loan.id})">Edit</button>
                             <button onclick="deleteLoan(${loan.id})">Delete</button>
@@ -201,17 +201,15 @@
                 return_date: returnDate
             };
 
-            console.log('Loan data being sent:', loanData); // Log loan data for debugging
-
             let request;
             if (loanId) {
-                request = axios.put(`http://localhost:5000/api/loans/${loanId}`, loanData, {
+                request = axios.put(`http://localhost:5000/loans/${loanId}`, loanData, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
                 });
             } else {
-                request = axios.post('http://localhost:5000/api/loans', loanData, {
+                request = axios.post('http://localhost:5000/loans', loanData, {
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
@@ -236,7 +234,7 @@
         function editLoan(id) {
             showLoading();
             const token = getToken();
-            axios.get(`http://localhost:5000/api/loans/${id}`, {
+            axios.get(`http://localhost:5000/loans/${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -261,7 +259,7 @@
         function deleteLoan(id) {
             showLoading();
             const token = getToken();
-            axios.delete(`http://localhost:5000/api/loans/${id}`, {
+            axios.delete(`http://localhost:5000/loans/${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -281,11 +279,8 @@
         }
 
         function resetForm() {
+            document.getElementById('loan-form').reset();
             document.getElementById('loan-id').value = '';
-            document.getElementById('loan-customer-id').value = '';
-            document.getElementById('loan-book-id').value = '';
-            document.getElementById('loan-date').value = '';
-            document.getElementById('return-date').value = '';
         }
 
         function showErrorMessage(message) {
@@ -293,9 +288,6 @@
             messageContainer.className = 'message error-message';
             messageContainer.textContent = message;
             messageContainer.style.display = 'block';
-            setTimeout(() => {
-                messageContainer.style.display = 'none';
-            }, 5000);
         }
 
         function showSuccessMessage(message) {
@@ -303,9 +295,6 @@
             messageContainer.className = 'message success-message';
             messageContainer.textContent = message;
             messageContainer.style.display = 'block';
-            setTimeout(() => {
-                messageContainer.style.display = 'none';
-            }, 5000);
         }
     </script>
 </body>

@@ -13,6 +13,8 @@
         }
         .container {
             padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         .table-container {
             overflow-x: auto;
@@ -33,6 +35,10 @@
         }
         .form-container {
             margin-top: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
         .form-group {
             margin-bottom: 15px;
@@ -40,17 +46,21 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
+            font-weight: bold;
         }
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 8px;
             box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
         .form-group button {
             padding: 10px 15px;
             background-color: #4CAF50;
             color: white;
             border: none;
+            border-radius: 4px;
             cursor: pointer;
         }
         .form-group button:hover {
@@ -61,6 +71,13 @@
         }
         #pagination-controls button {
             margin-right: 5px;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #pagination-controls button:hover {
+            background-color: #ddd;
         }
         .spinner {
             border: 4px solid #f3f3f3;
@@ -93,9 +110,9 @@
     </style>
 </head>
 <body>
-    <div id="pagination-controls"></div>
     <div class="container">
         <h1>Manage Books</h1>
+        <div id="message-container"></div>
         <div class="table-container">
             <table id="books-table">
                 <thead>
@@ -103,274 +120,183 @@
                         <th>ID</th>
                         <th>Title</th>
                         <th>Author</th>
-                        <th>Year</th>
-                        <th>Available Copies</th>
-                        <th>Type</th>
-                        <th>Book Image</th>
-                        <th>Action</th>
+                        <th>Genre</th>
+                        <th>Published Date</th>
+                        <th>Image</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <!-- Book data will be dynamically added here -->
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
+        <div id="pagination-controls"></div>
         <div class="form-container">
-            <h2>Add/Edit Book</h2>
-            <div id="loading-spinner" style="display: none;">
-                <div class="spinner"></div>
-            </div>
             <form id="book-form" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label for="book-id">ID (for edit only):</label>
-                    <input type="text" id="book-id" disabled>
+                    <label for="title">Title</label>
+                    <input type="text" id="title" name="title" required>
                 </div>
                 <div class="form-group">
-                    <label for="book-title">Title:</label>
-                    <input type="text" id="book-title" required>
+                    <label for="author">Author</label>
+                    <input type="text" id="author" name="author" required>
                 </div>
                 <div class="form-group">
-                    <label for="book-author">Author:</label>
-                    <input type="text" id="book-author" required>
+                    <label for="genre">Genre</label>
+                    <input type="text" id="genre" name="genre">
                 </div>
                 <div class="form-group">
-                    <label for="book-year">Year:</label>
-                    <input type="text" id="book-year" required>
+                    <label for="published_date">Published Date</label>
+                    <input type="text" id="published_date" name="published_date">
                 </div>
                 <div class="form-group">
-                    <label for="book-copies">Available Copies:</label>
-                    <input type="text" id="book-copies" required>
+                    <label for="image">Image</label>
+                    <input type="file" id="image" name="image" accept="image/*">
                 </div>
                 <div class="form-group">
-                    <label for="book-image">Upload Image:</label>
-                    <input type="file" id="book-image" accept="image/*">
+                    <button type="submit">Add Book</button>
                 </div>
-                <div class="form-group">
-                    <button type="submit">Save Book</button>
-                </div>
-                <div id="message-container" style="display: none;"></div>
-                <button type="button" onclick="confirmLogout()">Logout</button>
             </form>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        const SERVER = "http://127.0.0.1:5000";
-
         document.addEventListener('DOMContentLoaded', function() {
-            fetchBooks();
-        });
+            const API_URL = 'http://127.0.0.1:5000';
+            const tableBody = document.querySelector('#books-table tbody');
+            const messageContainer = document.getElementById('message-container');
+            const paginationControls = document.getElementById('pagination-controls');
+            const bookForm = document.getElementById('book-form');
+            let currentPage = 1;
+            let editMode = false;
+            let editBookId = null;
 
-        function fetchBooks(page = 1, perPage = 10) {
-            showLoading();
-            const token = getToken();
-            axios.get(`${SERVER}/api/books?page=${page}&per_page=${perPage}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            })
-            .then(response => {
-                console.log('Books fetched successfully:', response.data);
-                const booksTableBody = document.getElementById('books-table').getElementsByTagName('tbody')[0];
-                booksTableBody.innerHTML = '';
-                if (response.data.books) {
-                    response.data.books.forEach(book => {
-                        const row = booksTableBody.insertRow();
+            function showMessage(message, type = 'success') {
+                messageContainer.innerHTML = `<div class="${type}-message">${message}</div>`;
+                setTimeout(() => {
+                    messageContainer.innerHTML = '';
+                }, 3000);
+            }
+
+            function loadBooks(page = 1) {
+                fetch(`${API_URL}/books?page=${page}`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    tableBody.innerHTML = '';
+                    data.books.forEach(book => {
+                        const row = document.createElement('tr');
                         row.innerHTML = `
                             <td>${book.id}</td>
                             <td>${book.title}</td>
                             <td>${book.author}</td>
-                            <td>${book.year}</td>
-                            <td>${book.available_copies}</td>
-                            <td>${book.type || 'N/A'}</td>
-                            <td><img src="${book.image_url || 'placeholder.jpg'}" alt="${book.title}" width="50"></td>
+                            <td>${book.genre}</td>
+                            <td>${book.published_date}</td>
+                            <td><img src="${book.image_url}" alt="${book.title}" style="width: 50px;"></td>
                             <td>
                                 <button onclick="editBook(${book.id})">Edit</button>
                                 <button onclick="deleteBook(${book.id})">Delete</button>
                             </td>
                         `;
+                        tableBody.appendChild(row);
                     });
-                    updatePaginationControls(response.data.current_page, response.data.total_pages, response.data.total_items);
-                } else {
-                    showErrorMessage('No books found.');
+                    setupPagination(data.total, data.pages, data.current_page);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+
+            function setupPagination(total, pages, currentPage) {
+                paginationControls.innerHTML = '';
+                for (let i = 1; i <= pages; i++) {
+                    const button = document.createElement('button');
+                    button.textContent = i;
+                    if (i === currentPage) {
+                        button.disabled = true;
+                    }
+                    button.addEventListener('click', () => loadBooks(i));
+                    paginationControls.appendChild(button);
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching books:', error.response ? error.response.data : error.message);
-                showErrorMessage('Failed to fetch books. Please try again.');
-            })
-            .finally(() => {
-                hideLoading();
+            }
+
+            bookForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                let url = `${API_URL}/books`;
+                let method = 'POST';
+                if (editMode) {
+                    url = `${API_URL}/books/${editBookId}`;
+                    method = 'PUT';
+                }
+
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showMessage(data.message, 'success');
+                    loadBooks(currentPage);
+                    bookForm.reset();
+                    editMode = false;
+                    editBookId = null;
+                    document.querySelector('.form-group button').textContent = 'Add Book';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Error saving book', 'error');
+                });
             });
-        }
 
-        function updatePaginationControls(currentPage, totalPages, totalItems) {
-            const paginationContainer = document.getElementById('pagination-controls');
-            paginationContainer.innerHTML = '';
-
-            if (currentPage > 1) {
-                const prevButton = document.createElement('button');
-                prevButton.textContent = 'Previous';
-                prevButton.onclick = () => fetchBooks(currentPage - 1);
-                paginationContainer.appendChild(prevButton);
-            }
-
-            for (let i = 1; i <= totalPages; i++) {
-                const pageButton = document.createElement('button');
-                pageButton.textContent = i;
-                pageButton.onclick = () => fetchBooks(i);
-                if (i === currentPage) {
-                    pageButton.disabled = true;
-                }
-                paginationContainer.appendChild(pageButton);
-            }
-
-            if (currentPage < totalPages) {
-                const nextButton = document.createElement('button');
-                nextButton.textContent = 'Next';
-                nextButton.onclick = () => fetchBooks(currentPage + 1);
-                paginationContainer.appendChild(nextButton);
-            }
-
-            const totalItemsSpan = document.createElement('span');
-            totalItemsSpan.textContent = `Total items: ${totalItems}`;
-            paginationContainer.appendChild(totalItemsSpan);
-        }
-
-        function saveBook() {
-            showLoading();
-            const token = getToken();
-            const bookId = document.getElementById('book-id').value;
-            const bookTitle = document.getElementById('book-title').value;
-            const bookAuthor = document.getElementById('book-author').value;
-            const bookYear = document.getElementById('book-year').value;
-            const bookCopies = document.getElementById('book-copies').value;
-            const bookImage = document.getElementById('book-image').files[0];
-
-            const formData = new FormData();
-            formData.append('title', bookTitle);
-            formData.append('author', bookAuthor);
-            formData.append('year', bookYear);
-            formData.append('available_copies', bookCopies);
-            if (bookImage) {
-                formData.append('image', bookImage);
-            }
-
-            const config = {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
+            window.editBook = function(id) {
+                fetch(`${API_URL}/books/${id}`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('title').value = data.title;
+                    document.getElementById('author').value = data.author;
+                    document.getElementById('genre').value = data.genre;
+                    document.getElementById('published_date').value = data.published_date;
+                    document.getElementById('image').value = ''; // clear file input
+                    bookForm.dataset.id = data.id;
+                    editMode = true;
+                    editBookId = data.id;
+                    document.querySelector('.form-group button').textContent = 'Update Book';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
             };
 
-            let axiosRequest;
-            if (bookId) {
-                axiosRequest = axios.put(`${SERVER}/api/books/${bookId}`, formData, config);
-            } else {
-                axiosRequest = axios.post(`${SERVER}/api/books`, formData, config);
-            }
+            window.deleteBook = function(id) {
+                fetch(`${API_URL}/books/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showMessage(data.message, 'success');
+                    loadBooks(currentPage);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Error deleting book', 'error');
+                });
+            };
 
-            axiosRequest.then(response => {
-                console.log('Book saved successfully:', response.data);
-                showSuccessMessage('Book saved successfully.');
-                document.getElementById('book-form').reset();
-                fetchBooks();
-            })
-            .catch(error => {
-                console.error('Error saving book:', error.response ? error.response.data : error.message);
-                showErrorMessage('Failed to save book. Please try again.');
-            })
-            .finally(() => {
-                hideLoading();
-            });
-        }
-
-        function editBook(bookId) {
-            showLoading();
-            const token = getToken();
-            axios.get(`${SERVER}/api/books/${bookId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            })
-            .then(response => {
-                console.log('Book data for edit:', response.data);
-                const book = response.data;
-                document.getElementById('book-id').value = book.id;
-                document.getElementById('book-title').value = book.title;
-                document.getElementById('book-author').value = book.author;
-                document.getElementById('book-year').value = book.year;
-                document.getElementById('book-copies').value = book.available_copies;
-            })
-            .catch(error => {
-                console.error('Error fetching book for edit:', error.response ? error.response.data : error.message);
-                showErrorMessage('Failed to fetch book data. Please try again.');
-            })
-            .finally(() => {
-                hideLoading();
-            });
-        }
-
-        function deleteBook(bookId) {
-            showLoading();
-            const token = getToken();
-            axios.delete(`${SERVER}/api/books/${bookId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            })
-            .then(response => {
-                console.log('Book deleted successfully:', response.data);
-                showSuccessMessage('Book deleted successfully.');
-                fetchBooks();
-            })
-            .catch(error => {
-                console.error('Error deleting book:', error.response ? error.response.data : error.message);
-                showErrorMessage('Failed to delete book. Please try again.');
-            })
-            .finally(() => {
-                hideLoading();
-            });
-        }
-
-        function getToken() {
-            return localStorage.getItem('access_token');
-        }
-
-        function confirmLogout() {
-            if (confirm('Are you sure you want to log out?')) {
-                localStorage.removeItem('access_token');
-                window.location.href = 'login.html';
-            }
-        }
-
-        function showLoading() {
-            document.getElementById('loading-spinner').style.display = 'block';
-        }
-
-        function hideLoading() {
-            document.getElementById('loading-spinner').style.display = 'none';
-        }
-
-        function showErrorMessage(message) {
-            const messageContainer = document.getElementById('message-container');
-            messageContainer.textContent = message;
-            messageContainer.className = 'error-message';
-            messageContainer.style.display = 'block';
-        }
-
-        function showSuccessMessage(message) {
-            const messageContainer = document.getElementById('message-container');
-            messageContainer.textContent = message;
-            messageContainer.className = 'success-message';
-            messageContainer.style.display = 'block';
-        }
-
-        document.getElementById('book-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            saveBook();
+            loadBooks();
         });
-
     </script>
 </body>
 </html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src *; style-src 'self' http://* 'unsafe-inline'; script-src 'self' http://* 'unsafe-inline' 'unsafe-eval'" />
+    <title>Manage Loans</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            width: 70%;
+            margin: auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        select, input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Manage Loans</h1>
+        <form id="loan-form">
+            <div class="form-group">
+                <label for="book-id">Select Book:</label>
+                <select id="book-id" name="book_id" required></select>
+            </div>
+            <div class="form-group">
+                <label for="loan-date">Loan Date:</label>
+                <input type="date" id="loan-date" name="loan_date" required>
+            </div>
+            <button type="submit">Submit Loan</button>
+        </form>
+
+        <h2>Current Loans</h2>
+        <table id="loans-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Book Title</th>
+                    <th>Loan Date</th>
+                    <th>Return Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Loan rows will be populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const SERVER = "http://127.0.0.1:5000";
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const accessToken = localStorage.getItem('access_token');
+            const customerId = localStorage.getItem('customer_id');
+
+            console.log('Access Token:', accessToken);
+            console.log('Customer ID:', customerId);
+
+            if (!accessToken || !customerId) {
+                console.log('Redirecting to login due to missing token or customer ID');
+                window.location.href = 'home_client.html'; // Redirect to login
+                return;
+            }
+
+            // Fetch books and populate the select element
+            axios.get(`${SERVER}/books`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => {
+                const books = response.data.books;
+                const selectElement = document.getElementById('book-id');
+
+                books.forEach(book => {
+                    const option = document.createElement('option');
+                    option.value = book.id;
+                    option.textContent = book.title;
+                    selectElement.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error("There was an error fetching the books!", error);
+                alert("Unable to fetch books. Please try again later.");
+            });
+
+            // Fetch existing loans and populate the table
+            axios.get(`${SERVER}/client/loans`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => {
+                const loans = response.data;
+                const tableBody = document.getElementById('loans-table').getElementsByTagName('tbody')[0];
+                tableBody.innerHTML = '';
+
+                loans.forEach(loan => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${loan.id}</td>
+                        <td>${loan.book_title}</td>
+                        <td>${loan.loan_date}</td>
+                        <td>${loan.return_date ? loan.return_date : 'N/A'}</td>
+                    `;
+                });
+            })
+            .catch(error => {
+                console.error("There was an error fetching the loans!", error);
+                alert("Unable to fetch loans. Please try again later.");
+            });
+        });
+
+        document.getElementById('loan-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const bookId = document.getElementById('book-id').value;
+            const loanDate = document.getElementById('loan-date').value;
+
+            if (!bookId || !loanDate) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const accessToken = localStorage.getItem('access_token');
+            const customerId = localStorage.getItem('customer_id');
+
+            axios.post(`${SERVER}/client/loans`, {
+                book_id: bookId,
+                loan_date: loanDate,
+                customer_id: customerId
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                alert("Loan created successfully!");
+                document.getElementById('loan-form').reset(); // Clear the form
+                // Refresh loans table
+                document.dispatchEvent(new Event('DOMContentLoaded'));
+            })
+            .catch(error => {
+                console.error("There was an error posting the loan!", error);
+                alert("Unable to post the loan. Please try again later.");
+            });
+        });
+    </script>
+</body>
+
+</html>
