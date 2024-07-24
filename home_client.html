@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="data:image/x-icon;base64,AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAPv/AP+4MwAAlf8ABOAEACQk/wDjAH0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAUAEAQAAAAAVQMRBAAGAABVAxFEIGYAAFUzEUQiZgAAVTMQBCJmAAAFMwAAImAAAAAAAAAAAAD//wAA//8AAP//AAD+fwAA/D8AAPgfAADwDwAA4AcAAMADAACAAQAAgAEAAIABAACAAQAAgAEAAMGDAADjxwAA" rel="icon" type="image/x-icon">
     <title>Home - Client</title>
     <style>
         body {
@@ -131,13 +132,13 @@
 <body>
     <div class="navbar">
         <a href="home_client.html" class="active">Home</a>
-        <a href="post_loan.html">make loan</a>
+        <a href="post_loan.html">Make Loan</a>
         <a href="profile_client.html">Profile</a>
-        <a href="index.html" class="right">Logout</a>
+        <a href="index.html" class="right" onclick="logout()">Logout</a>
         <a href="home_admin.html" class="right">Admin Only</a>
     </div>
 
-   <center><h1>Welcome to Library</h1></center> 
+    <center><h1>Welcome to Library</h1></center>
 
     <div class="book-container" id="book-container">
         <!-- Book cards will be dynamically added here -->
@@ -152,26 +153,28 @@
     <div id="spinner" class="spinner" style="display: none;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    
+
     <script>
         const SERVER = "http://127.0.0.1:5000";
         const DEFAULT_IMAGE = 'https://duncanlock.net/images/posts/better-figures-images-plugin-for-pelican/dummy-200x200.png';
         let currentPage = 1;
         let isLoading = false;
 
-        document.addEventListener('DOMContentLoaded', function () {
-            const token = getToken();
-            if (!token) {
-                console.error('No token found in localStorage. Ensure you are logged in.');
+        document.addEventListener('DOMContentLoaded', function() {
+            const accessToken = localStorage.getItem('accessToken');
+            const customerId = localStorage.getItem('customerId');
+
+            if (!accessToken || !customerId) {
+                console.log('Redirecting to login due to missing token or customer ID');
+                window.location.href = 'index.html'; // Redirect to login
                 return;
             }
 
-            
             fetchBooks();
         });
 
         function getToken() {
-            const token = localStorage.getItem('access_token');
+            const token = localStorage.getItem('accessToken');
             console.log('Retrieved token from localStorage:', token);
             return token;
         }
@@ -267,8 +270,14 @@
         }
 
         function selectBook(bookId) {
-    window.location.href = `post_loan.html?book_id=${bookId}`;
-}
+            window.location.href = `post_loan.html?book_id=${bookId}`;
+        }
+
+        function logout() {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('customerId');
+            window.location.href = 'index.html';
+        }
     </script>
 </body>
 

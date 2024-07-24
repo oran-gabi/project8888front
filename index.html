@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link href="data:image/x-icon;base64,AAABAAEAEBAQAAEABAAoAQAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAgAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAPv/AP+4MwAAlf8ABOAEACQk/wDjAH0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAUAEAQAAAAAVQMRBAAGAABVAxFEIGYAAFUzEUQiZgAAVTMQBCJmAAAFMwAAImAAAAAAAAAAAAD//wAA//8AAP//AAD+fwAA/D8AAPgfAADwDwAA4AcAAMADAACAAQAAgAEAAIABAACAAQAAgAEAAMGDAADjxwAA" rel="icon" type="image/x-icon">
     <title>User Registration and Login</title>
     <style>
         body {
@@ -174,12 +174,13 @@
                 .then(response => {
                     console.log('Registration response:', response.data);
                     alert('User registered successfully!');
-                    const token = response.data.access_token;
-                    localStorage.setItem('token', token);
-                    console.log('Token stored:', token);
+                    const { access_token, customer_id } = response.data;
+                    localStorage.setItem('accessToken', access_token);
+                    localStorage.setItem('customerId', customer_id);
+                    console.log('Token and Customer ID stored:', access_token, customer_id);
                     
                     // Redirect to the home page after registration
-                    window.location.href = 'http://127.0.0.1:5500/home_client.html';
+                    window.location.href = 'home_client.html';
                 })
                 .catch(error => {
                     console.error('Registration error:', error.response ? error.response.data.message : error.message);
@@ -188,31 +189,31 @@
         }
 
         function loginUser() {
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
 
-    const loginData = {
-        username: username,
-        password: password
-    };
+            const loginData = {
+                username: username,
+                password: password
+            };
 
-    axios.post('http://localhost:5000/login', loginData, { withCredentials: true })
-        .then(response => {
-            console.log('Login response:', response.data);
-            alert('User logged in successfully!');
-            const token = response.data.access_token;
-            localStorage.setItem('access_token', token);  // Store with the correct key
-            console.log('Token stored:', token);
-            
-            // Redirect to the home page after login
-            window.location.href = 'http://127.0.0.1:5500/home_client.html';
-        })
-        .catch(error => {
-            console.error('Login error:', error.response ? error.response.data.message : error.message);
-            document.getElementById('login-error-message').textContent = error.response ? error.response.data.message : error.message;
-        });
-}
-
+            axios.post('http://localhost:5000/login', loginData, { withCredentials: true })
+                .then(response => {
+                    console.log('Login response:', response.data);
+                    alert('User logged in successfully!');
+                    const { access_token, customer_id } = response.data;
+                    localStorage.setItem('accessToken', access_token);
+                    localStorage.setItem('customerId', customer_id);
+                    console.log('Token and Customer ID stored:', access_token, customer_id);
+                    
+                    // Redirect to the home page after login
+                    window.location.href = 'home_client.html';
+                })
+                .catch(error => {
+                    console.error('Login error:', error.response ? error.response.data.message : error.message);
+                    document.getElementById('login-error-message').textContent = error.response ? error.response.data.message : error.message;
+                });
+        }
     </script>
 </body>
 </html>
